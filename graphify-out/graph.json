@@ -1,0 +1,419 @@
+{
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "nodes": [
+    {
+      "id": "llm_extract",
+      "label": "llm_extract.py",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_load_env_local",
+      "label": "_load_env_local()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L41",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_client_and_model",
+      "label": "_client_and_model()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L56",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_extract_json",
+      "label": "_extract_json()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L76",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_normalize_whitespace",
+      "label": "_normalize_whitespace()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L86",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_verify_citation",
+      "label": "_verify_citation()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L90",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_extract_structured",
+      "label": "extract_structured()",
+      "file_type": "code",
+      "source_file": "llm_extract.py",
+      "source_location": "L104",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_2",
+      "label": "llm_extract.py ============== Generic \"unstructured document -> structured…",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L2",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_42",
+      "label": "Minimal .env.local loader (avoids a hard python-dotenv dependency).",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L42",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_57",
+      "label": "Returns (openai.OpenAI-compatible client, model_name) for the given provider.",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L57",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_77",
+      "label": "Pull the first {...} JSON object out of a model response (models sometimes wrap…",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L77",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_91",
+      "label": "True if *span* appears verbatim (allowing whitespace differences) in…",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L91",
+      "_origin": "ast"
+    },
+    {
+      "id": "llm_extract_rationale_112",
+      "label": "Extract a JSON object matching *schema* out of unstructured *text* using an…",
+      "file_type": "rationale",
+      "source_file": "llm_extract.py",
+      "source_location": "L112",
+      "_origin": "ast"
+    },
+    {
+      "id": "readme",
+      "label": "README.md",
+      "file_type": "document",
+      "node_kind": "page",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "readme_llm_extract_citation_fix",
+      "label": "llm-extract-citation-fix",
+      "file_type": "document",
+      "node_kind": "heading",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "readme_the_fix",
+      "label": "The fix",
+      "file_type": "document",
+      "node_kind": "heading",
+      "source_file": "README.md",
+      "source_location": "L16",
+      "_origin": "ast"
+    }
+  ],
+  "links": [
+    {
+      "source": "llm_extract",
+      "target": "json",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "os",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "re",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "typing",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_load_env_local",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_client_and_model",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_extract_json",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_normalize_whitespace",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_verify_citation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L90",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "llm_extract_extract_structured",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L104",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract",
+      "target": "argparse",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L212",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_client_and_model",
+      "target": "llm_extract_load_env_local",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L58",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_verify_citation",
+      "target": "llm_extract_verify_citation",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_verify_citation",
+      "target": "llm_extract_normalize_whitespace",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_extract_structured",
+      "target": "llm_extract_client_and_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L182",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_extract_structured",
+      "target": "llm_extract_extract_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L188",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_extract_structured",
+      "target": "llm_extract_verify_citation",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L199",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_2",
+      "target": "llm_extract",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_42",
+      "target": "llm_extract_load_env_local",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_57",
+      "target": "llm_extract_client_and_model",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_77",
+      "target": "llm_extract_extract_json",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_91",
+      "target": "llm_extract_verify_citation",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "llm_extract_rationale_112",
+      "target": "llm_extract_extract_structured",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "llm_extract.py",
+      "source_location": "L112",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "readme",
+      "target": "readme_llm_extract_citation_fix",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "readme_llm_extract_citation_fix",
+      "target": "readme_the_fix",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    }
+  ],
+  "directed": false
+}
