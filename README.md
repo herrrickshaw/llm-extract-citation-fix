@@ -1,5 +1,9 @@
 # llm-extract-citation-fix
 
+<!-- how-to-use-with-ai -->
+> **New here?** See [How to use this repo with AI (Claude, Gemini, ChatGPT)](HOW_TO_USE_WITH_AI.md) — clone it, paste it into an AI tool, and ask in plain English.
+
+
 `extract_structured()` (structured-JSON extraction from unstructured text via
 an LLM, with citation-grounding) with one bug fixed: `_verify_citation()`
 only accepted a single string span. For an array-typed field — e.g.
