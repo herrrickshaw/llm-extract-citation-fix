@@ -77,10 +77,13 @@ def _extract_json(text: str) -> dict:
     """Pull the first {...} JSON object out of a model response (models sometimes wrap it in prose or ```json fences)."""
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     candidate = fenced.group(1) if fenced else text
-    match = re.search(r"\{.*\}", candidate, re.DOTALL)
-    if not match:
+    start = candidate.find("{")
+    if start < 0:
         raise ValueError(f"no JSON object found in model response: {text[:200]!r}")
-    return json.loads(match.group(0))
+    # raw_decode stops at the end of the first complete object, so trailing prose
+    # (which may itself contain braces) is ignored.
+    obj, _ = json.JSONDecoder().raw_decode(candidate, start)
+    return obj
 
 
 def _normalize_whitespace(s: str) -> str:
