@@ -29,18 +29,47 @@ Usage:
     }
     result = extract_structured(drhp_text, schema)
 """
+
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+# Provider registry: name -> (api-key env var, model env var, default model, base URL).
+# Adding a provider is one new row here; no caller changes.
+PROVIDERS: dict = {
+    "groq": {
+        "key_var": "GROQ_API_KEY",
+        "model_var": "GROQ_MODEL",
+        "default_model": "llama-3.3-70b-versatile",
+        "base_url": "https://api.groq.com/openai/v1",
+    },
+    "gemini": {
+        "key_var": "GEMINI_API_KEY",
+        "model_var": "GEMINI_MODEL",
+        "default_model": "gemini-2.0-flash",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    },
+}
+DEFAULT_PROVIDER = "groq"
+DEFAULT_FALLBACK_PROVIDER = "gemini"
+TEMPERATURE = 0
 
 
-def _load_env_local() -> dict:
-    """Minimal .env.local loader (avoids a hard python-dotenv dependency)."""
-    env_path = Path.home() / ".env.local"
+def _load_env_local(env_path: Optional[Path] = None) -> dict:
+    """Minimal .env.local loader (avoids a hard python-dotenv dependency).
+
+    Reads KEY=VALUE lines from *env_path* (default ``~/.env.local``); blank and
+    ``#`` lines are skipped. Returns {} when the file does not exist.
+    """
+    env_path = env_path or Path.home() / ".env.local"
     values: dict = {}
     if not env_path.exists():
         return values
@@ -54,27 +83,28 @@ def _load_env_local() -> dict:
 
 
 def _client_and_model(provider: str):
-    """Returns (openai.OpenAI-compatible client, model_name) for the given provider."""
+    """Return (openai.OpenAI-compatible client, model_name) for a PROVIDERS entry.
+
+    Credentials come from ``~/.env.local`` overlaid by the process environment.
+    """
+    spec = PROVIDERS.get(provider)
+    if spec is None:
+        raise ValueError(f"unknown provider {provider!r}")
     env = {**_load_env_local(), **os.environ}
     from openai import OpenAI
 
-    if provider == "groq":
-        key = env.get("GROQ_API_KEY")
-        if not key:
-            raise RuntimeError("GROQ_API_KEY not found in ~/.env.local or environment")
-        return (OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1"),
-                env.get("GROQ_MODEL", "llama-3.3-70b-versatile"))
-    if provider == "gemini":
-        key = env.get("GEMINI_API_KEY")
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY not found in ~/.env.local or environment")
-        return (OpenAI(api_key=key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/"),
-                env.get("GEMINI_MODEL", "gemini-2.0-flash"))
-    raise ValueError(f"unknown provider {provider!r}")
+    key = env.get(spec["key_var"])
+    if not key:
+        raise RuntimeError(f"{spec['key_var']} not found in ~/.env.local or environment")
+    client = OpenAI(api_key=key, base_url=spec["base_url"])
+    return client, env.get(spec["model_var"], spec["default_model"])
 
 
 def _extract_json(text: str) -> dict:
-    """Pull the first {...} JSON object out of a model response (models sometimes wrap it in prose or ```json fences)."""
+    """Pull the first {...} JSON object out of a model response.
+
+    Models sometimes wrap the object in prose or ```json fences; both are tolerated.
+    """
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     candidate = fenced.group(1) if fenced else text
     match = re.search(r"\{.*\}", candidate, re.DOTALL)
@@ -84,6 +114,7 @@ def _extract_json(text: str) -> dict:
 
 
 def _normalize_whitespace(s: str) -> str:
+    """Collapse runs of whitespace to one space and strip the ends."""
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -105,8 +136,8 @@ def extract_structured(
     text: str,
     schema: dict,
     instructions: str = "",
-    provider: str = "groq",
-    fallback_provider: Optional[str] = "gemini",
+    provider: str = DEFAULT_PROVIDER,
+    fallback_provider: Optional[str] = DEFAULT_FALLBACK_PROVIDER,
     require_citations: bool = True,
 ) -> dict:
     """
@@ -149,10 +180,31 @@ def extract_structured(
     parse fails, then raises if that fails too -- callers should catch and
     degrade gracefully (e.g. skip the field, don't crash a whole report).
     """
-    schema_lines = "\n".join(f'  "{k}": {v}' for k, v in schema.items())
+    prompt = build_prompt(text, schema, instructions, require_citations)
+    providers = [provider] + ([fallback_provider] if fallback_provider else [])
+    last_error: Optional[Exception] = None
+    for p in providers:
+        try:
+            client, model = _client_and_model(p)
+            parsed = _extract_json(_complete(client, model, prompt))
+            if not require_citations:
+                return parsed
+            return ground_fields(parsed, schema, text)
+        except Exception as exc:  # any provider/parse/grounding failure -> next provider
+            logger.warning("extract_structured: provider %s failed: %s", p, exc)
+            last_error = exc
+    raise RuntimeError(f"extract_structured failed on all providers {providers}: {last_error}")
 
+
+def build_prompt(text: str, schema: dict, instructions: str, require_citations: bool) -> str:
+    """Render the extraction prompt (pure; no I/O).
+
+    With *require_citations* the model is asked for ``{"fields", "citations"}``;
+    otherwise for the flat field dict alone.
+    """
+    schema_lines = "\n".join(f'  "{k}": {v}' for k, v in schema.items())
     if require_citations:
-        prompt = (
+        return (
             "Extract the following fields from the document text below. "
             "Respond with ONLY a single JSON object with exactly two top-level keys, "
             '"fields" and "citations" -- no prose, no markdown fences.\n\n'
@@ -165,80 +217,86 @@ def extract_structured(
             f"{instructions}\n\n"
             f"Document text:\n{text}"
         )
-    else:
-        prompt = (
-            "Extract the following fields from the document text below. "
-            "Respond with ONLY a single JSON object -- no prose, no markdown fences. "
-            "Use null for any field not present in the text.\n\n"
-            f"Fields:\n{schema_lines}\n\n"
-            f"{instructions}\n\n"
-            f"Document text:\n{text}"
-        )
+    return (
+        "Extract the following fields from the document text below. "
+        "Respond with ONLY a single JSON object -- no prose, no markdown fences. "
+        "Use null for any field not present in the text.\n\n"
+        f"Fields:\n{schema_lines}\n\n"
+        f"{instructions}\n\n"
+        f"Document text:\n{text}"
+    )
 
-    providers = [provider] + ([fallback_provider] if fallback_provider else [])
-    last_error = None
-    for p in providers:
-        try:
-            client, model = _client_and_model(p)
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-            )
-            parsed = _extract_json(resp.choices[0].message.content)
-            if not require_citations:
-                return parsed
 
-            fields = parsed.get("fields", {})
-            citations = parsed.get("citations", {})
-            grounding = {}
-            for key in schema:
-                value = fields.get(key)
-                span = citations.get(key)
-                grounding[key] = {
-                    "grounded": (value is None) or _verify_citation(span, text),
-                    "span": span,
-                }
-            result = dict(fields)
-            result["_grounding"] = grounding
-            return result
-        except Exception as exc:
-            last_error = exc
-            continue
-    raise RuntimeError(f"extract_structured failed on all providers {providers}: {last_error}")
+def ground_fields(parsed: dict, schema: dict, text: str) -> dict:
+    """Attach ``_grounding`` to the model's ``{"fields", "citations"}`` reply (pure).
+
+    For every schema key: a null value counts as grounded; otherwise the cited
+    span (str, or list of str for array fields) must appear verbatim in *text*.
+    Ungrounded values are kept, only flagged.
+    """
+    fields = parsed.get("fields", {})
+    citations = parsed.get("citations", {})
+    grounding: dict = {}
+    for key in schema:
+        value = fields.get(key)
+        span = citations.get(key)
+        grounding[key] = {
+            "grounded": (value is None) or _verify_citation(span, text),
+            "span": span,
+        }
+    result = dict(fields)
+    result["_grounding"] = grounding
+    return result
+
+
+def _complete(client: Any, model: str, prompt: str) -> str:
+    """Single chat completion at temperature 0; returns the raw message text."""
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=TEMPERATURE,
+    )
+    return resp.choices[0].message.content
+
+
+DEMO_DRHP_TEXT = (
+    "Vantage Cold Chain Logistics Limited proposes to raise up to "
+    "Rs. 850 crore through a fresh issue of equity shares, with a "
+    "price band of Rs. 210 to Rs. 222 per equity share of face value "
+    "Rs. 10 each. The equity shares are proposed to be listed on both "
+    "BSE and NSE. The issue opens on 14 August and closes on 18 August."
+)
+DEMO_DRHP_SCHEMA = {
+    "company_name": "string",
+    "issue_size_cr": "number, total issue size in INR crore",
+    "price_band_low": "number",
+    "price_band_high": "number",
+    "listing_exchange": "string, e.g. NSE/BSE/both",
+}
+DEMO_PORTFOLIO_TEXT = (
+    "Holdings as of statement date: 120 shares of RELIANCE INDUSTRIES LTD "
+    "purchased at an average price of Rs 2,410.50; 40 shares of TCS at "
+    "average cost Rs 3,550.00; cash balance Rs 15,230.75."
+)
+DEMO_PORTFOLIO_SCHEMA = {
+    "holdings": "array of {symbol, quantity, avg_price}",
+    "cash_balance": "number",
+}
+DEMOS = {
+    "drhp": (DEMO_DRHP_TEXT, DEMO_DRHP_SCHEMA),
+    "portfolio": (DEMO_PORTFOLIO_TEXT, DEMO_PORTFOLIO_SCHEMA),
+}
+
+
+def main(argv: Optional[list] = None) -> None:
+    """CLI: run one of the built-in demos against the configured providers."""
+    ap = argparse.ArgumentParser(description="LLM structured extraction demo")
+    ap.add_argument("--demo", choices=sorted(DEMOS), default="drhp")
+    args = ap.parse_args(argv)
+    sample_text, schema = DEMOS[args.demo]
+    result = extract_structured(sample_text, schema)
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    import argparse
-    ap = argparse.ArgumentParser(description="LLM structured extraction demo")
-    ap.add_argument("--demo", choices=["drhp", "portfolio"], default="drhp")
-    args = ap.parse_args()
-
-    if args.demo == "drhp":
-        sample_text = (
-            "Vantage Cold Chain Logistics Limited proposes to raise up to "
-            "Rs. 850 crore through a fresh issue of equity shares, with a "
-            "price band of Rs. 210 to Rs. 222 per equity share of face value "
-            "Rs. 10 each. The equity shares are proposed to be listed on both "
-            "BSE and NSE. The issue opens on 14 August and closes on 18 August."
-        )
-        schema = {
-            "company_name": "string",
-            "issue_size_cr": "number, total issue size in INR crore",
-            "price_band_low": "number",
-            "price_band_high": "number",
-            "listing_exchange": "string, e.g. NSE/BSE/both",
-        }
-    else:
-        sample_text = (
-            "Holdings as of statement date: 120 shares of RELIANCE INDUSTRIES LTD "
-            "purchased at an average price of Rs 2,410.50; 40 shares of TCS at "
-            "average cost Rs 3,550.00; cash balance Rs 15,230.75."
-        )
-        schema = {
-            "holdings": "array of {symbol, quantity, avg_price}",
-            "cash_balance": "number",
-        }
-
-    result = extract_structured(sample_text, schema)
-    print(json.dumps(result, indent=2))
+    main()

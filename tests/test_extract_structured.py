@@ -138,3 +138,21 @@ def test_cli_help_smoke():
         check=True,
     )
     assert "--demo" in proc.stdout
+
+
+def test_provider_failure_is_logged(monkeypatch, caplog):
+    _patch_providers(
+        monkeypatch, {"groq": FakeClient(["garbage"]), "gemini": FakeClient(['{"x": 1}'])}
+    )
+    with caplog.at_level("WARNING", logger="llm_extract"):
+        llm_extract.extract_structured(TEXT, SCHEMA, require_citations=False)
+    assert "provider groq failed" in caplog.text
+
+
+def test_main_prints_json_for_each_demo(monkeypatch, capsys):
+    monkeypatch.setattr(
+        llm_extract, "extract_structured", lambda text, schema: {"ok": sorted(schema)}
+    )
+    for demo, (_, schema) in llm_extract.DEMOS.items():
+        llm_extract.main(["--demo", demo])
+        assert json.loads(capsys.readouterr().out) == {"ok": sorted(schema)}

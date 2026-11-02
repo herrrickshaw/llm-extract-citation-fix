@@ -62,3 +62,39 @@ def test_load_env_local_parses_simple_file(tmp_path, monkeypatch):
 def test_load_env_local_missing_file_is_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(llm_extract.Path, "home", staticmethod(lambda: tmp_path))
     assert llm_extract._load_env_local() == {}
+
+
+def test_load_env_local_accepts_explicit_path(tmp_path):
+    env_file = tmp_path / "custom.env"
+    env_file.write_text("K=v\n")
+    assert llm_extract._load_env_local(env_file) == {"K": "v"}
+
+
+def test_build_prompt_with_and_without_citations():
+    schema = {"a": "string", "b": "number"}
+    with_cites = llm_extract.build_prompt("DOC", schema, "extra", True)
+    without = llm_extract.build_prompt("DOC", schema, "extra", False)
+    for prompt in (with_cites, without):
+        assert '  "a": string\n  "b": number' in prompt
+        assert prompt.endswith("extra\n\nDocument text:\nDOC")
+    assert '"citations" must have the SAME keys' in with_cites
+    assert "citations" not in without
+
+
+def test_ground_fields_flags_each_key_and_keeps_values():
+    parsed = {
+        "fields": {"a": "x", "b": None, "c": 7},
+        "citations": {"a": "Rs. 210", "b": None, "c": "nope"},
+    }
+    out = llm_extract.ground_fields(parsed, {"a": "", "b": "", "c": ""}, SOURCE)
+    assert {k: out[k] for k in "abc"} == {"a": "x", "b": None, "c": 7}
+    assert out["_grounding"] == {
+        "a": {"grounded": True, "span": "Rs. 210"},
+        "b": {"grounded": True, "span": None},
+        "c": {"grounded": False, "span": "nope"},
+    }
+
+
+def test_ground_fields_tolerates_missing_keys():
+    out = llm_extract.ground_fields({}, {"a": ""}, SOURCE)
+    assert out == {"_grounding": {"a": {"grounded": True, "span": None}}}
