@@ -2,6 +2,15 @@
 
 Guidance for Claude Code sessions working in this repository.
 
+## Layout and commands
+
+- `llm_extract.py` is the whole library: `extract_structured()` orchestrates `build_prompt` → `_client_and_model`
+  (`PROVIDERS` registry) → `_complete` → `_extract_json` → `ground_fields` / `_verify_citation`.
+  CLI: `python llm_extract.py --demo {drhp,portfolio}` (needs `GROQ_API_KEY` or `GEMINI_API_KEY`).
+- Tests: `pytest -q` (all LLM calls stubbed, no network). Lint: `ruff check .`. Install: `pip install -e ".[dev]"`.
+- Keep `_verify_citation`'s list branch — it is the bug fix this repo exists for; README and tests document it.
+- Never commit API keys; they come from `~/.env.local` or the environment.
+
 <!-- source-fetch-toolkit:v1 (managed by ~/bin/add_source_fetch_section.py — edit there, not here) -->
 ## Source fetching for data collection & literature surveys
 
