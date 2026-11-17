@@ -1,0 +1,20 @@
+[project]
+name = "llm-extract-citation-fix"
+version = "0.1.0"
+description = "Structured-JSON extraction from unstructured text via an LLM, with citation grounding (array-field fix)"
+requires-python = ">=3.9"
+dependencies = ["openai>=1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["UP007", "UP045"]  # keep Optional[] for py3.9 runtime compatibility
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
