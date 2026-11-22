@@ -28,7 +28,8 @@ class FakeClient:
         self.calls.append(kw)
         if self.exc:
             raise self.exc
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=self.reply))])
+        message = SimpleNamespace(content=self.reply)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
 @pytest.fixture
