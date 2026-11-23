@@ -364,3 +364,32 @@ def test_demos_registry_is_consistent():
     assert set(llm_extract.DEMOS) == {"drhp", "portfolio"}
     for text, schema in llm_extract.DEMOS.values():
         assert isinstance(text, str) and text and isinstance(schema, dict) and schema
+
+
+def test_extract_json_multiline_fenced_block_wins_over_brace_noise_before_it():
+    reply = 'Note {this is not json}\n```json\n{\n  "a": 1,\n  "b": {"c": 2}\n}\n```\ntrailing {x}'
+    assert llm_extract._extract_json(reply) == {"a": 1, "b": {"c": 2}}
+
+
+def test_extract_json_takes_the_first_of_several_fenced_blocks():
+    reply = '```json\n{"a": 1}\n```\nand\n```json\n{"a": 2}\n```'
+    assert llm_extract._extract_json(reply) == {"a": 1}
+
+
+def test_complete_returns_the_first_choice():
+    def create(**kw):
+        choices = [
+            types.SimpleNamespace(message=types.SimpleNamespace(content="first")),
+            types.SimpleNamespace(message=types.SimpleNamespace(content="second")),
+        ]
+        return types.SimpleNamespace(choices=choices)
+
+    completions = types.SimpleNamespace(create=create)
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))
+    assert llm_extract._complete(client, "m", "p") == "first"
+
+
+def test_main_prints_indented_json(monkeypatch, capsys):
+    monkeypatch.setattr(llm_extract, "extract_structured", lambda t, s: {"a": 1, "b": [2]})
+    llm_extract.main(["--demo", "drhp"])
+    assert capsys.readouterr().out == json.dumps({"a": 1, "b": [2]}, indent=2) + "\n"
