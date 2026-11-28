@@ -151,12 +151,14 @@ Keys are never committed; `.env.local` lives in the home directory, outside the 
 
 ## Testing
 ```bash
-pytest -q        # 119 tests, no network
+pytest -q        # 128 tests, no network
 ruff check .
 ```
 
 ## Limitations and known issues
-- Grounding only proves the cited span is real text from the document. It does **not** check that a *derived* value is correct: a `price_band_midpoint` of 216 was grounded=True because the model cited the real "Rs. 210 to Rs. 222" span, yet nothing verifies 216 is the midpoint. Recompute arithmetic yourself from grounded raw values.
+- Grounding only proves the cited span is real text from the document. A *derived* value (a midpoint, a total) is checked only if you give the formula:
+  `extract_structured(text, schema, derived={"price_band_midpoint": (["price_band_low", "price_band_high"], lambda lo, hi: (lo + hi) / 2)})`.
+  Each such field gets `_grounding[field]["derived_ok"]`: `True` (matches), `False` (differs) or `None` (an input is missing or ungrounded, or the formula failed). It checks the arithmetic, not whether the inputs were read from the right place. Values are never changed.
 - A citation must start and end on whole words and numbers (`Rs 1` no longer matches `Rs 15,230.75`). It can still match a real but irrelevant phrase elsewhere in the document. Text in scripts written without spaces between words may be rejected when quoted mid-sentence.
 - The schema is a plain field → description map used verbatim in the prompt; it is not validated as JSON Schema.
 - The default model names may be deprecated by the providers over time (the promptfoo pilot caught exactly this). Override via `GROQ_MODEL` / `GEMINI_MODEL`.
