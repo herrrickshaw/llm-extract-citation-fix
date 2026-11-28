@@ -138,7 +138,35 @@ def _verify_citation(span: object, source_text: str) -> bool:
         return bool(span) and all(_verify_citation(item, source_text) for item in span)
     if not isinstance(span, str) or not span.strip():
         return False
-    return _normalize_whitespace(span) in _normalize_whitespace(source_text)
+    return _contains_whole(_normalize_whitespace(source_text), _normalize_whitespace(span))
+
+
+def _splits_token(text: str, i: int) -> bool:
+    """True if cutting *text* before index *i* would split a word or a number.
+
+    A cut between two letters/digits splits a word; a cut beside a ``,`` or ``.``
+    that sits between digits splits a number such as ``15,230.75``.
+    """
+    if i <= 0 or i >= len(text):
+        return False
+    left, right = text[i - 1], text[i]
+    if left.isalnum() and right.isalnum():
+        return True
+    if left.isdigit() and right in ",.":
+        return text[i + 1 : i + 2].isdigit()
+    if left in ",." and right.isdigit():
+        return i >= 2 and text[i - 2].isdigit()
+    return False
+
+
+def _contains_whole(source: str, span: str) -> bool:
+    """True if some occurrence of *span* in *source* starts and ends on token boundaries."""
+    start = source.find(span)
+    while start >= 0:
+        if not _splits_token(source, start) and not _splits_token(source, start + len(span)):
+            return True
+        start = source.find(span, start + 1)
+    return False
 
 
 def extract_structured(
