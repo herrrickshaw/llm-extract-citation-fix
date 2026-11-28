@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import re
 from pathlib import Path
@@ -176,6 +177,7 @@ def extract_structured(
     provider: str = DEFAULT_PROVIDER,
     fallback_provider: Optional[str] = DEFAULT_FALLBACK_PROVIDER,
     require_citations: bool = True,
+    derived: Optional[dict] = None,
 ) -> dict:
     """
     Extract a JSON object matching *schema* out of unstructured *text* using
@@ -213,10 +215,17 @@ def extract_structured(
     recompute simple arithmetic yourself from the grounded raw values rather
     than trusting the model's derived one).
 
+    derived (optional) closes that gap for fields you can recompute:
+    ``{field: (input_field_names, function)}``, for example
+    ``{"mid": (["low", "high"], lambda lo, hi: (lo + hi) / 2)}``. See
+    check_derived(). It needs require_citations=True.
+
     Falls back to *fallback_provider* if the primary provider's call or JSON
     parse fails, then raises if that fails too -- callers should catch and
     degrade gracefully (e.g. skip the field, don't crash a whole report).
     """
+    if derived and not require_citations:
+        raise ValueError("derived checks need require_citations=True")
     prompt = build_prompt(text, schema, instructions, require_citations)
     providers = [provider] + ([fallback_provider] if fallback_provider else [])
     last_error: Optional[Exception] = None
@@ -226,7 +235,7 @@ def extract_structured(
             parsed = _extract_json(_complete(client, model, prompt))
             if not require_citations:
                 return parsed
-            return ground_fields(parsed, schema, text)
+            return check_derived(ground_fields(parsed, schema, text), derived or {})
         except Exception as exc:  # any provider/parse/grounding failure -> next provider
             logger.warning("extract_structured: provider %s failed: %s", p, exc)
             last_error = exc
@@ -283,6 +292,48 @@ def ground_fields(parsed: dict, schema: dict, text: str) -> dict:
         }
     result = dict(fields)
     result["_grounding"] = grounding
+    return result
+
+
+def _as_number(value: object) -> object:
+    """"15,230.75" -> 15230.75; anything that is not a plain number is returned unchanged."""
+    if isinstance(value, str):
+        try:
+            return float(value.replace(",", "").strip())
+        except ValueError:
+            return value
+    return value
+
+
+def check_derived(result: dict, derived: dict) -> dict:
+    """Recompute calculated fields and record ``derived_ok`` in ``_grounding`` (pure).
+
+    *derived* maps a field to ``(input_field_names, function)``. ``derived_ok`` is
+    True if the recomputed value matches the model's, False if it differs, and
+    None if it cannot be checked (an input is missing or ungrounded, or the
+    function fails). Values themselves are never changed. This proves the
+    arithmetic, not that the inputs were read from the right place.
+    """
+    grounding = result.get("_grounding", {})
+    for field, (inputs, func) in derived.items():
+        if field not in grounding:
+            raise ValueError(f"derived field {field!r} is not in the schema")
+        verdict = None
+        usable = all(
+            result.get(name) is not None and grounding.get(name, {}).get("grounded")
+            for name in inputs
+        )
+        if usable:
+            try:
+                expected = func(*(_as_number(result[name]) for name in inputs))
+                actual = _as_number(result.get(field))
+                if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
+                    verdict = math.isclose(expected, actual, rel_tol=1e-9, abs_tol=0.005)
+                else:
+                    verdict = expected == actual
+            except (ArithmeticError, TypeError, ValueError):
+                verdict = None
+        grounding[field]["derived_ok"] = verdict
     return result
 
 
