@@ -18,6 +18,39 @@ that pin it down.
 > MY269019 and MY269128 (IIIT-Hyderabad). Educational use only; not investment
 > advice.
 
+## In plain English
+
+*This section is for readers who do not write software.*
+
+**What problem does it solve?** AI models are good at pulling facts out of long documents, for example the
+price range in a share-sale prospectus, but they sometimes state things the document never said. This tool
+asks the AI to **show its evidence**: for each fact, the exact words copied from the document. The program
+then checks that those words really are there.
+
+**An example**
+
+| Step | What happens |
+|---|---|
+| The document says | "...with a price band of Rs. 210 to Rs. 222 per equity share..." |
+| The AI reports | lowest price = 210, evidence = "Rs. 210 to Rs. 222" |
+| The program checks | Is that exact phrase in the document? Yes, so it is marked **grounded** |
+| If the phrase were not there | The value is still shown, but marked **not grounded** for a person to check |
+
+The evidence must also cover **whole words and whole numbers**. If the document says "Rs 15,230.75",
+evidence reading "Rs 1" or "Rs 15" is rejected, even though those characters appear inside the longer number.
+
+**What "grounded" does and does not mean**
+- It **does** mean the quoted words exist in the document.
+- It does **not** mean the answer is right. The AI could quote a real sentence and misread it, link it to the
+  wrong item, or get a calculation wrong. For example, it could quote a real price range and report the wrong midpoint.
+- So treat "not grounded" as a warning, and "grounded" as "worth checking", not as proof.
+
+**Where does your document go?** Its text is sent to an outside AI service (Groq, or Google's Gemini as the
+backup). Do not use confidential or personal documents unless you are allowed to share them with those services.
+
+**What you need:** Python and an access key for one of those services. Their prices and free limits are set by
+them. This is a building block for programmers, not an app with buttons.
+
 ## What it does
 - Builds a schema-driven extraction prompt and returns the model's JSON object (`extract_structured`).
 - Asks for and verifies a verbatim citation per field, attaching `_grounding: {field: {grounded, span}}` (`ground_fields`, `_verify_citation`).
@@ -69,6 +102,8 @@ code rejected outright, silently marking a perfectly grounded extraction as
      return _normalize_whitespace(span) in _normalize_whitespace(source_text)
 ```
 
+(The final line shown is as it was at the time of that fix; matching has since been tightened to whole words and numbers.)
+
 It was found via a [promptfoo](https://www.promptfoo.dev/) pilot against this
 function's real test cases (a SEBI DRHP filing and a portfolio holdings
 statement): the array-holdings case failed on `_grounding.holdings` even though
@@ -116,13 +151,13 @@ Keys are never committed; `.env.local` lives in the home directory, outside the 
 
 ## Testing
 ```bash
-pytest -q        # 25 tests, no network
+pytest -q        # 119 tests, no network
 ruff check .
 ```
 
 ## Limitations and known issues
 - Grounding only proves the cited span is real text from the document. It does **not** check that a *derived* value is correct: a `price_band_midpoint` of 216 was grounded=True because the model cited the real "Rs. 210 to Rs. 222" span, yet nothing verifies 216 is the midpoint. Recompute arithmetic yourself from grounded raw values.
-- Substring matching is permissive: a citation of `Rs 1` is accepted when the document contains `Rs 15,230.75`.
+- A citation must start and end on whole words and numbers (`Rs 1` no longer matches `Rs 15,230.75`). It can still match a real but irrelevant phrase elsewhere in the document. Text in scripts written without spaces between words may be rejected when quoted mid-sentence.
 - The schema is a plain field → description map used verbatim in the prompt; it is not validated as JSON Schema.
 - The default model names may be deprecated by the providers over time (the promptfoo pilot caught exactly this). Override via `GROQ_MODEL` / `GEMINI_MODEL`.
 - The literature this guards against is sobering: on FinanceBench, GPT-4-Turbo with retrieval got 81% of questions wrong; FinTagging found the best model only 17% accurate at linking facts to XBRL concepts. Single-shot "trust the JSON" extraction is not a safe default for financial documents.
